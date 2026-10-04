@@ -11,7 +11,7 @@ Yahoo Finance ─────┤  src/collect.py  ───► │
                    └───────────────────────┘
                                  │
                                  ▼
-                     src/build_master.py  ───►  data/processed/master_weekly.csv  (1,500 weeks × 115 columns)
+                     src/build_master.py  ───►  data/processed/master_weekly.csv  (1,500 weeks × 17 columns)
                                                 data/processed/data_dictionary.csv
                                  │
                                  ▼
@@ -25,8 +25,9 @@ Yahoo Finance ─────┤  src/collect.py  ───► │
    Each file is cached under `data/raw/` and `manifest.json` records its URL, pull time, row count and date span.
 2. **Build the master table** (`src/build_master.py`). Daily prices are collapsed to the claims week (Sunday–Saturday,
    labelled by the Saturday), the monthly recession flag is forward-filled to weeks, everything is left-joined onto the
-   claims index, and derived features are added: % changes, 16 lags, volatility, log levels, z-score and Min-Max copies,
-   and the 0/1 dummies. Sanity assertions run before the CSV is written.
+   claims index, and the proposal's features are added per commodity: base weekly price, weekly % price shock and 4-week
+   volatility. Sanity assertions run before the CSV is written. The proposal's 16-week lag window is **not stored**;
+   `add_lags()` creates it on demand so the master stays at 17 columns.
 3. **Document and check** (notebook). The notebook imports the two scripts, rebuilds the table, and shows the evidence the
    brief asks for: the collection audit, the alignment code and a worked example, the missing-value report and its rationale,
    and the transformation / encoding steps with interpretation after each one.
@@ -39,6 +40,19 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python src/build_master.py
 .venv/bin/jupyter nbconvert --to notebook --execute --inplace Milestone02_Section2_DataIngestion.ipynb
 ```
+
+## Columns of `master_weekly.csv`
+
+| Column | Meaning | Proposal feature family |
+|---|---|---|
+| `week_ending` (index) | Saturday ending the claims week | key |
+| `icsa`, `log_icsa`, `icsa_pct_chg_1w` | Weekly initial claims, its log, its week-over-week % change | target |
+| `oil_mean`, `gas_mean`, `copper_mean`, `iron_mean` | Mean daily price in the week | base weekly price |
+| `oil_pct_1w`, `gas_pct_1w`, `copper_pct_1w`, `iron_pct_1w` | % change of the weekly mean | percentage price shock |
+| `oil_vol_4w`, `gas_vol_4w`, `copper_vol_4w`, `iron_vol_4w` | SD of daily log returns over trailing 20 trading days | volatility |
+| `usrec`, `covid_period` | NBER recession flag; Mar–Dec 2020 flag | regime controls |
+
+`{c}_pct_lag1..16` are produced by `add_lags(master)` when needed (not stored).
 
 ## Where each bullet of the brief is done
 
@@ -58,15 +72,17 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 | What | Where |
 |---|---|
-| Unit of observation: 1 row = 1 week ending Saturday (claims convention); check that all ICSA dates are Saturdays | `src/build_master.py` → `load_icsa()` line 52, assertion line 55 |
-| Daily → weekly down-sampling (`resample("W-SAT")`): mean, last, trading-day count, within-week volatility, 4-week volatility | `src/build_master.py` → `weekly_from_daily()` lines 65–91 |
-| Unit harmonisation: copper USD/lb → USD/tonne | `src/build_master.py` line 27 and line 48 |
-| Monthly → weekly up-sampling of the recession flag (forward fill) | `src/build_master.py` line 121 |
-| Join: all weekly frames left-joined onto the claims index | `src/build_master.py` line 116 |
-| Feature construction: % change, log level, lags 1–16 (concat, no fragmentation) | `src/build_master.py` → `add_commodity_features()` lines 94–102 |
-| Structural sanity assertions (unique monotonic index, start date, target never missing, expected NaN windows) | `src/build_master.py` lines 186–192 |
+| Unit of observation: 1 row = 1 week ending Saturday (claims convention); check that all ICSA dates are Saturdays | `src/build_master.py` → `load_icsa()` line 59, assertion line 62 |
+| Daily → weekly down-sampling (`resample("W-SAT")`): mean price and 4-week volatility; zero-trading-day weeks → NaN | `src/build_master.py` → `weekly_from_daily()` lines 72–92 |
+| Unit harmonisation: copper USD/lb → USD/tonne | `src/build_master.py` line 31 and `load_daily()` lines 49–56 |
+| Monthly → weekly up-sampling of the recession flag (forward fill) | `src/build_master.py` line 126 |
+| Join: all weekly frames left-joined onto the claims index | `src/build_master.py` line 121 |
+| Feature construction: weekly % price shock | `src/build_master.py` → `add_commodity_features()` lines 95–98 |
+| Lags 1–16 on demand (proposal's exploratory window) | `src/build_master.py` → `add_lags()` lines 101–111 |
+| Fixed column order of the final table | `src/build_master.py` → `COLUMN_ORDER` line 43, applied line 129 |
+| Structural sanity assertions (unique monotonic index, start date, 17 columns, target never missing, expected NaN windows) | `src/build_master.py` lines 166–173 |
 | Resulting modelling-ready table | `data/processed/master_weekly.csv` |
-| Column-by-column description (unit, source, role) | `data/processed/data_dictionary.csv`, generated by `data_dictionary()` line 150 |
+| Column-by-column description (unit, source, role) | `data/processed/data_dictionary.csv`, generated by `data_dictionary()` line 140 |
 | The alignment functions printed in the notebook for review | notebook cell 8 |
 | Worked example: five daily WTI prices → one weekly row, plus the all-Saturdays / 7-day-spacing check | notebook cell 9, interpretation cell 10 |
 | Narrative of the four reshaping steps | notebook cell 7 (markdown §2.2) |
@@ -77,18 +93,17 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 | What | Where |
 |---|---|
-| Missing count and % for all 115 columns, the lag block summarised, and a by-year missingness table per commodity | notebook cell 12 |
+| Missing count and % for all 17 columns, and a by-year missingness table per commodity | notebook cell 12 |
 
 **"Explicit rationale for handling missing data … and discuss potential selection bias"**
 
 | What | Where |
 |---|---|
-| Decision table per variable group (target, oil, gas, copper, iron, lags, dummies) and why nothing is imputed; why FRED back-fill of iron ore was rejected; listwise deletion per model; the selection-bias paragraph (iron-ore models never see 2001 or 2008) | notebook cell 13 (markdown) |
+| Decision table per variable group and why nothing is imputed; why FRED back-fill of iron ore was rejected; listwise deletion per model; the selection-bias paragraph (iron-ore models never see 2001 or 2008) | notebook cell 13 (markdown) |
 | Cleaning rules implemented in code: FRED `.` → NaN | `src/collect.py` line 75 |
-| Drop NaN days before aggregating | `src/build_master.py` line 46 |
-| Weeks with zero trading days set to NaN | `src/build_master.py` line 89 |
-| Negative WTI print (2020-04-20) excluded from log returns only, price level kept | `src/build_master.py` line 79 |
-| Availability flags that record the structural gaps | `src/build_master.py` lines 126–127 |
+| Drop NaN days before aggregating | `src/build_master.py` line 53 |
+| Weeks with zero trading days set to NaN | `src/build_master.py` lines 90–91 |
+| Negative WTI print (2020-04-20) excluded from log returns only, price level kept | `src/build_master.py` line 84 |
 
 ### 4. Transformations & Encoding
 
@@ -96,31 +111,30 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 | What | Where |
 |---|---|
-| `log_icsa` and `{commodity}_log_mean` columns | `src/build_master.py` line 108 (`log_icsa`) and `add_commodity_features()` line 98 |
-| Skewness before vs after the log for claims and the four prices, with interpretation | notebook cell 15, interpretation cell 16 |
+| `log_icsa` stored in the master | `src/build_master.py` → `build_master()` line 116 |
+| Skewness before vs after the log for claims and the four prices (commodity logs computed in the cell, not stored), with interpretation | notebook cell 15, interpretation cell 16 |
 
 **"Scaling: normalization (Min-Max) or standardization (z-score) applied to continuous variables"**
 
 | What | Where |
 |---|---|
-| `*_z` (z-score) and `*_mm` (Min-Max) copies of claims, log claims and the four weekly mean prices | `src/build_master.py` lines 131–137 (`SCALE_COLS` loop) |
-| Summary of raw vs z vs Min-Max statistics, and the note that modelling will refit scalers on the training window | notebook cell 17, interpretation cell 18 |
+| z-score and Min-Max computed for claims, log claims and the four weekly mean prices; summary of raw vs z vs Min-Max; note that scaled columns are not stored because scalers are refit on the training window | notebook cell 17, interpretation cell 18 |
 
 **"Categorical Encoding: conversion of nominal categorical strings into Boolean dummy indicator flags"**
 
 | What | Where |
 |---|---|
-| Nominal strings `quarter` (Q1–Q4) and `regime` (expansion/recession) built, converted with `pd.get_dummies(drop_first=True)`, and asserted equal to the master's `q2, q3, q4, usrec`; counts of every 0/1 flag | notebook cell 19, interpretation cell 20 |
-| Dummy columns in the pipeline: `usrec`, `q2–q4`, `covid_period`, `copper_avail`, `iron_avail` | `src/build_master.py` lines 121–127 |
+| Nominal strings `quarter` (Q1–Q4) and `regime` (expansion/recession) built, converted with `pd.get_dummies(drop_first=True)`, regime dummy asserted equal to the master's `usrec`; counts of the stored flags | notebook cell 19, interpretation cell 20 |
+| Dummy columns in the pipeline: `usrec`, `covid_period` | `src/build_master.py` lines 126–127 |
 
 ## Files on this branch
 
 | Path | Role |
 |---|---|
 | `src/collect.py` | Collection + provenance manifest |
-| `src/build_master.py` | Alignment, cleaning, features, scaling, dummies, data dictionary |
+| `src/build_master.py` | Alignment, cleaning, features, `add_lags()`, data dictionary |
 | `data/raw/` | 8 raw CSVs + `manifest.json` |
-| `data/processed/master_weekly.csv` | The master analytical dataset |
+| `data/processed/master_weekly.csv` | The master analytical dataset (17 columns) |
 | `data/processed/data_dictionary.csv` | Column descriptions |
 | `Milestone02_Section2_DataIngestion.ipynb` | Executed Section 2 notebook |
 | `requirements.txt`, `.gitignore` | Environment |

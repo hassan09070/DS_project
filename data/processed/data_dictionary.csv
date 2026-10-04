@@ -1,45 +1,20 @@
 column,description,unit,source,role
 week_ending,Saturday that ends the Sun-Sat week (ICSA reference week),date,FRED ICSA,key
 icsa,"Initial unemployment insurance claims, seasonally adjusted",persons/week,FRED ICSA,target
-log_icsa,Natural log of icsa (variance-stabilising transform),log(persons),derived,target
-icsa_pct_chg_1w,Week-over-week % change in icsa,%,derived,target
-icsa_spike,1 if icsa_pct_chg_1w is in the top decile of the sample,0/1,derived,target (binary)
-oil_mean,WTI crude oil spot: mean of daily prices in the week,USD/barrel,FRED/Yahoo,predictor (level)
-oil_close,WTI crude oil spot: last daily price in the week,USD/barrel,FRED/Yahoo,predictor (level)
-oil_n_days,WTI crude oil spot: trading days observed in the week,days,derived,quality flag
-oil_vol_w,WTI crude oil spot: std of daily log returns within the week,log-return sd,derived,predictor (volatility)
+log_icsa,Natural log of icsa (variance-stabilising transform),log(persons),derived,target (model scale)
+icsa_pct_chg_1w,Week-over-week % change in icsa,%,derived,target (change)
+oil_mean,WTI crude oil spot: mean of daily prices in the week (base weekly price),USD/barrel,FRED/Yahoo,predictor (level)
+oil_pct_1w,WTI crude oil spot: week-over-week % change of weekly mean (price shock),%,derived,predictor (shock)
 oil_vol_4w,WTI crude oil spot: std of daily log returns over trailing 20 trading days,log-return sd,derived,predictor (volatility)
-oil_log_mean,log(oil_mean),log(USD/barrel),derived,predictor (level)
-oil_pct_1w,WTI crude oil spot: week-over-week % change of weekly mean,%,derived,predictor (shock)
-oil_pct_lag1..16,oil_pct_1w shifted k weeks back (k=1..16),%,derived,predictor (lagged shock)
-gas_mean,Henry Hub natural gas spot: mean of daily prices in the week,USD/MMBtu,FRED/Yahoo,predictor (level)
-gas_close,Henry Hub natural gas spot: last daily price in the week,USD/MMBtu,FRED/Yahoo,predictor (level)
-gas_n_days,Henry Hub natural gas spot: trading days observed in the week,days,derived,quality flag
-gas_vol_w,Henry Hub natural gas spot: std of daily log returns within the week,log-return sd,derived,predictor (volatility)
+gas_mean,Henry Hub natural gas spot: mean of daily prices in the week (base weekly price),USD/MMBtu,FRED/Yahoo,predictor (level)
+gas_pct_1w,Henry Hub natural gas spot: week-over-week % change of weekly mean (price shock),%,derived,predictor (shock)
 gas_vol_4w,Henry Hub natural gas spot: std of daily log returns over trailing 20 trading days,log-return sd,derived,predictor (volatility)
-gas_log_mean,log(gas_mean),log(USD/MMBtu),derived,predictor (level)
-gas_pct_1w,Henry Hub natural gas spot: week-over-week % change of weekly mean,%,derived,predictor (shock)
-gas_pct_lag1..16,gas_pct_1w shifted k weeks back (k=1..16),%,derived,predictor (lagged shock)
-copper_mean,COMEX copper futures (HG=F): mean of daily prices in the week,USD/tonne,FRED/Yahoo,predictor (level)
-copper_close,COMEX copper futures (HG=F): last daily price in the week,USD/tonne,FRED/Yahoo,predictor (level)
-copper_n_days,COMEX copper futures (HG=F): trading days observed in the week,days,derived,quality flag
-copper_vol_w,COMEX copper futures (HG=F): std of daily log returns within the week,log-return sd,derived,predictor (volatility)
+copper_mean,COMEX copper futures (HG=F): mean of daily prices in the week (base weekly price),USD/tonne,FRED/Yahoo,predictor (level)
+copper_pct_1w,COMEX copper futures (HG=F): week-over-week % change of weekly mean (price shock),%,derived,predictor (shock)
 copper_vol_4w,COMEX copper futures (HG=F): std of daily log returns over trailing 20 trading days,log-return sd,derived,predictor (volatility)
-copper_log_mean,log(copper_mean),log(USD/tonne),derived,predictor (level)
-copper_pct_1w,COMEX copper futures (HG=F): week-over-week % change of weekly mean,%,derived,predictor (shock)
-copper_pct_lag1..16,copper_pct_1w shifted k weeks back (k=1..16),%,derived,predictor (lagged shock)
-iron_mean,Iron ore 62% Fe futures (TIO=F): mean of daily prices in the week,USD/tonne,FRED/Yahoo,predictor (level)
-iron_close,Iron ore 62% Fe futures (TIO=F): last daily price in the week,USD/tonne,FRED/Yahoo,predictor (level)
-iron_n_days,Iron ore 62% Fe futures (TIO=F): trading days observed in the week,days,derived,quality flag
-iron_vol_w,Iron ore 62% Fe futures (TIO=F): std of daily log returns within the week,log-return sd,derived,predictor (volatility)
+iron_mean,Iron ore 62% Fe futures (TIO=F): mean of daily prices in the week (base weekly price),USD/tonne,FRED/Yahoo,predictor (level)
+iron_pct_1w,Iron ore 62% Fe futures (TIO=F): week-over-week % change of weekly mean (price shock),%,derived,predictor (shock)
 iron_vol_4w,Iron ore 62% Fe futures (TIO=F): std of daily log returns over trailing 20 trading days,log-return sd,derived,predictor (volatility)
-iron_log_mean,log(iron_mean),log(USD/tonne),derived,predictor (level)
-iron_pct_1w,Iron ore 62% Fe futures (TIO=F): week-over-week % change of weekly mean,%,derived,predictor (shock)
-iron_pct_lag1..16,iron_pct_1w shifted k weeks back (k=1..16),%,derived,predictor (lagged shock)
 usrec,"NBER recession month indicator, forward-filled to weeks",0/1,FRED USREC,control (dummy)
-"q2, q3, q4",Calendar-quarter dummies (Q1 reference),0/1,derived,control (dummy)
 covid_period,1 for weeks Mar-Dec 2020,0/1,derived,control (dummy)
-copper_avail,1 if copper futures data exist that week (from 2000-09),0/1,derived,availability flag
-iron_avail,1 if iron ore futures data exist that week (from 2010-10),0/1,derived,availability flag
-*_z,z-score standardised copy (full-sample mean/sd),sd units,derived,scaled
-*_mm,"min-max scaled copy to [0, 1] (full-sample min/max)",unitless,derived,scaled
+{c}_pct_lag1..16,NOT stored: created by add_lags(); {c}_pct_1w shifted k weeks back,%,derived,predictor (lagged shock)

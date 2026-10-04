@@ -1,0 +1,5 @@
+commodity,spike rate after shock,spike rate otherwise,relative risk,chi2,p-value
+WTI crude oil,0.1293,0.0969,1.3333,1.1971,0.2739
+Henry Hub natural gas,0.1846,0.0894,2.0645,10.8358,0.001
+Copper (COMEX),0.0882,0.1016,0.8681,0.1177,0.7315
+Iron ore 62% Fe,0.1429,0.0914,1.563,1.7383,0.1874

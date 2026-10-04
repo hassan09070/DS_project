@@ -1,9 +1,0 @@
-series,description,frequency,rows,first_date,last_date,source
-ICSA,"Initial Claims (weekly, SA, persons)",weekly,1500,1998-01-03,2026-09-26,https://fred.stlouisfed.org/graph/fredgraph.csv?id=ICSA
-DCOILWTICO,"WTI crude oil spot (daily, USD/bbl)",daily,7499,1998-01-01,2026-09-29,https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO
-DHHNGSP,"Henry Hub natural gas spot (daily, USD/MMBtu)",daily,7499,1998-01-01,2026-09-29,https://fred.stlouisfed.org/graph/fredgraph.csv?id=DHHNGSP
-USREC,"NBER recession indicator (monthly, 0/1)",monthly,345,1998-01-01,2026-09-01,https://fred.stlouisfed.org/graph/fredgraph.csv?id=USREC
-PCOPPUSDM,"Copper global price (monthly, USD/tonne) -- reference",monthly,343,1998-01-01,2026-07-01,https://fred.stlouisfed.org/graph/fredgraph.csv?id=PCOPPUSDM
-PIORECRUSDM,"Iron ore global price (monthly, USD/tonne) -- reference",monthly,343,1998-01-01,2026-07-01,https://fred.stlouisfed.org/graph/fredgraph.csv?id=PIORECRUSDM
-HG_F,"COMEX copper futures (daily, USD/lb)",daily,6552,2000-08-30,2026-10-02,"yfinance.download('HG=F', start='1998-01-01', interval='1d')"
-TIO_F,"Iron ore 62% Fe CFR China futures (daily, USD/tonne)",daily,4003,2010-10-14,2026-10-02,"yfinance.download('TIO=F', start='1998-01-01', interval='1d')"

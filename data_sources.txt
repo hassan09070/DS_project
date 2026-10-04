@@ -1,0 +1,17 @@
+https://fred.stlouisfed.org/series/ICSA (Inital Claims)
+
+https://fred.stlouisfed.org/series/DHHNGSP (Natural Gas)
+
+https://comexlive.org/copper/ (Copper)
+
+https://fred.stlouisfed.org/series/PIORECRUSDM (Iron Ore)
+
+https://fred.stlouisfed.org/series/DCOILWTICO (Crude Oil)
+
+https://fred.stlouisfed.org/series/PCOPPUSDM (Copper)
+
+Initial Claims - Weekly
+Natural Gas - Daily
+Copper - Monthly
+Iron Ore - Monthly
+Crude Oil - Daily

@@ -1,0 +1,89 @@
+Project Milestone 02: Data Preparation, EDA, and Hypothesis Report
+Having established your project foundation in Milestone 01 (Problem Framing & Dataset Curation), Milestone 02 moves your team from project scoping to empirical execution. In this milestone, teams must demonstrate that their raw data has been fully ingested, cleaned, aligned, and integrated into a unified analytical master dataset. Furthermore, you will conduct a rigorous Exploratory Data Analysis (EDA) and formulate testable, formal statistical hypotheses grounded in your chosen United Nations Sustainable Development Goal (SDG).
+
+ 
+
+Milestone 02 Requirements:
+Section 1: Project Alignment & Master Dataset Inventory
+Team Metadata & Problem Summary: Restate your project title, team members (with disciplinary backgrounds), and primary social research question.
+Master Dataset Overview: Provide a summary table detailing your final master analytical dataset:
+Total row count (observations) and column count ( variables).
+Primary observational unit (e.g., 1 row = 1 daily sensor reading in Karachi or 1 row = 1 municipal water node).
+Data sources included (APIs, scraped web tables, government portals, or merged survey files).
+ 
+
+Section 2: Data Ingestion, Cleaning & Structural Readiness
+Scraping / Collection Audit: Document the mechanics used to collect, scrape, or extract your raw files.
+Data Alignment & Structural Organization:
+Ensure the dataset is structured in a clear, modeling-ready tabular layout appropriate for your specific research goals.
+If your raw data contains variables scattered across multiple headers, unaligned keys, or nested tables, perform the necessary reshaping or merging operations (melt / pivot / concat / joins) as needed.
+Cleaning & Missing Data Strategy:
+Report missing value counts and percentages across all features.
+Provide explicit rationale for handling missing data (e.g., listwise deletion vs. mean/median/time-series imputation) and discuss potential selection bias.
+Transformations & Encoding:
+Feature Rescaling: Document any log-transformations () applied to handle heavy right-skewness.
+Scaling: Report normalization (Min-Max) or standardization (-score) applied to continuous variables.
+Categorical Encoding: Show conversion of nominal categorical strings into Boolean dummy indicator flags (or ).
+ 
+
+Section 3: Exploratory Data Analysis (EDA) & Initial Findings
+Univariate Summary Statistics:
+Present a clean summary table reporting central tendency (Mean, Median) and spread (Standard Deviation, IQR) for all key numerical variables.
+Identify skewed distributions and compare resistant vs. non-resistant metrics.
+Outlier Diagnostic:
+Audit extreme values using both the -score rule () and the Quartile rule (). Address potential variance inflation or masking effects.
+Bivariate & Multivariate Exploration:
+Analyze key relationships between predictor variables and your target outcome using group-by aggregations, contingency tables, or correlation matrices.
+Publication-Quality Visualizations:
+Include at least 3–4 polished figures adhering to the Grammar of Graphics:
+Informative plot titles and detailed captions.
+Fully labeled axes with physical units of measurement.
+Clear legends and accessible, professional color palettes.
+ 
+
+Section 4: Formal Hypothesis Framing & Analytical Plan
+3–5 Testable Hypotheses: State 3 to 5 formal hypotheses driving your upcoming predictive/explanatory models in formal Null () and Alternative () notation:
+Variable Mapping: Explicitly map every hypothesis to specific columns in your master dataset, designating:
+Target / Response Variable ()
+Primary Explanatory Predictors ()
+Confounding or Control Variables
+ 
+
+Section 5: Progressive Manuscript Workflow
+Since the final project deliverable is a publishable research paper. To avoid a single end-of-semester writing crunch, you will write your manuscript incrementally across the semester.
+
+The PDF report for Milestone 02 serves as Draft Section II (Data & Preprocessing) and Draft Section III (Exploratory Data Analysis) of your final manuscript.
+
+ 
+
+Milestone 02 Marks Distribution
+
+Criterion
+
+Weight
+
+Description
+
+Data Preparation & Structural Readiness
+
+35% Marks
+
+Master dataset is fully cleaned, aligned, and structured appropriately for modeling. Preprocessing choices (missing values, log transforms, dummy encoding, and any needed reshaping) are thoroughly justified.
+
+EDA & Visualization Quality
+
+35% Marks
+
+Comprehensive univariate/bivariate analysis. Proper use graphics for communicating findings. Visualizations adhere to Grammar of Graphics standards.
+
+Hypothesis Framing & Analytical Plan
+
+15% Marks
+
+3–5 well-defined  hypotheses grounded in SDG impact, with clear target/predictor variable mapping for machine learning modeling.
+
+Manuscript Draft Structure & Code Quality
+
+15% Marks
+
+Well-commented, executable notebook and clean PDF manuscript draft following scientific paper formatting.

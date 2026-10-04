@@ -197,13 +197,13 @@ table(src, "Raw series collected, with row counts and coverage as recorded in da
 doc.add_heading("II.2 Alignment and the master dataset", level=2)
 para("The observational unit is one calendar week ending Saturday, the Department of Labor's reference week for initial "
      "claims. The claims series is never resampled; every other series is brought onto its grid (src/build_master.py). "
-     "Daily prices are collapsed into Sunday–Saturday bins and summarised by the weekly mean (the level feature), the last "
-     "price, the number of trading days observed, the standard deviation of daily log returns within the week, and a "
-     "trailing 20-trading-day volatility sampled on the last day of the week. The monthly recession flag is forward-filled "
-     "to weeks. All weekly frames are left-joined onto the claims index, so no commodity week without a claims observation "
-     "enters the table. Per commodity we then derive the week-over-week percentage change of the weekly mean, its natural "
-     "log, and lags 1–16 of the percentage change, the exploratory lag window of the proposal. Copper is converted from USD "
-     "per pound to USD per tonne (× 2,204.62) so that it is comparable with the FRED benchmark.")
+     "Daily prices are collapsed into Sunday–Saturday bins and summarised by the weekly mean (the base weekly price) and a "
+     "trailing 20-trading-day volatility of daily log returns sampled on the last day of the week. The monthly recession flag "
+     "is forward-filled to weeks. All weekly frames are left-joined onto the claims index, so no commodity week without a claims "
+     "observation enters the table. Per commodity we then derive the week-over-week percentage change of the weekly mean (the "
+     "price shock). Lags 1–16 of the shock, the proposal's exploratory window, are generated on demand by add_lags() rather than "
+     "stored, which keeps the master at 17 columns. Copper is converted from USD per pound to USD per tonne (× 2,204.62) so that "
+     "it is comparable with the FRED benchmark.")
 para("The weekly mean, rather than the close, is the level feature because it reflects what a business paying for inputs "
      "over the week actually faced. The week ending 25 April 2020 illustrates the difference: it closes at 15.99 USD/bbl but "
      "its mean is 3.32 USD/bbl because of the −37.63 USD/bbl WTI settlement on 20 April. That single negative print has an "
@@ -212,12 +212,9 @@ ov = pd.read_csv(T / "t01_master_overview.csv")
 table(ov, "Master analytical dataset at a glance.", 2, index=False, col_widths=[4.0, 12.6])
 
 doc.add_heading("II.3 Missing data", level=2)
-core = ["icsa", "icsa_pct_chg_1w", "oil_mean", "gas_mean", "copper_mean", "iron_mean", "oil_vol_4w", "gas_vol_4w",
-        "copper_vol_4w", "iron_vol_4w", "usrec"]
-mt = missing.loc[core].rename(columns={"missing_n": "Missing (n)", "missing_pct": "Missing (%)"}).rename_axis("Variable")
+mt = missing.rename(columns={"missing_n": "Missing (n)", "missing_pct": "Missing (%)"}).rename_axis("Variable")
 mt["Missing (n)"] = mt["Missing (n)"].astype(int)
-table(mt, "Missing values in the core columns of the master dataset (lagged columns add exactly k further weeks per lag k; "
-      "scaled copies inherit the pattern of their source column).", 3, col_widths=[5, 3, 3])
+table(mt, "Missing values in every column of the master dataset (17 columns, 1,500 weeks).", 3, col_widths=[5, 3, 3])
 by = by_year.T; by.index.name = "commodity"
 by = by.loc[:, [c for c in by.columns if int(c) <= 2011]]
 table(by, "Share of weeks (%) with a missing weekly mean price, by year, 1998–2011 (no missing weeks after 2011).", 4, font=7.5)
@@ -232,8 +229,8 @@ para("**Handling rationale.** No value is imputed. Mean or median imputation of 
      "iron ore was priced on annual contracts, so the FRED series is a flat step function (36.63 USD/t throughout 2007) with no "
      "weekly information, and mixing two sources in one column contradicts the single-source decision of Milestone 01. Because "
      "the target is complete, no row is dropped from the master table; each model will instead apply listwise deletion on the "
-     f"columns it uses, so a copper model trains on {int(dummies.loc['copper_avail','weeks = 1']):,} weeks (2000–2026) and an iron-ore "
-     f"model on {int(dummies.loc['iron_avail','weeks = 1']):,} weeks (2010–2026). Availability flags (copper_avail, iron_avail) record the regime.")
+     f"columns it uses, so a copper model trains on {int(master['copper_mean'].notna().sum()):,} weeks (2000–2026) and an iron-ore "
+     f"model on {int(master['iron_mean'].notna().sum()):,} weeks (2010–2026).")
 para("**Selection bias.** Listwise deletion is innocuous only when missingness is unrelated to the outcome. Here it is related to "
      "time, and time to the outcome: any specification that includes iron ore observes neither the 2001 recession nor the "
      "2008–09 financial crisis, the two largest claims episodes other than COVID-19, and will be estimated on a sample with a "
@@ -250,19 +247,21 @@ para(f"**Log transformation.** Initial claims are extremely right-skewed ({skew.
      f"discussed by policymakers. Natural gas is the only commodity with material right skew ({skew.loc['gas_mean','skew (raw)']:.2f}), "
      f"reduced to {skew.loc['gas_mean','skew (log)']:.2f} by the log. Oil, copper and iron ore are close to symmetric in levels and the "
      "log over-corrects oil and copper into moderate left skew, so their raw levels remain the primary features.")
-para("**Scaling.** Standardised (z-score) and Min-Max copies of claims, log claims and the four weekly mean prices are stored as "
-     "*_z and *_mm columns. Standardisation makes coefficients comparable across commodities measured in dollars per barrel, "
-     "per MMBtu and per tonne; Min-Max copies serve bounded-input models. These EDA copies use full-sample statistics; in "
-     "Milestone 03 the scalers will be refitted on the training window only to avoid look-ahead leakage.")
+para("**Scaling.** Standardisation (z-score) and Min-Max normalisation of claims, log claims and the four weekly mean prices are "
+     "computed and reported in the notebook but not stored in the master. Standardisation makes coefficients comparable across "
+     "commodities measured in dollars per barrel, per MMBtu and per tonne; Min-Max serves bounded-input models. Because the "
+     "statistics are full-sample, storing scaled columns would bake look-ahead information into the file; in Milestone 03 the "
+     "scalers are fitted on the training window inside the model pipeline.")
 dm = dummies.rename_axis("Indicator").rename(columns={"weeks = 1": "Weeks = 1", "share": "Share"})
 dm["Weeks = 1"] = dm["Weeks = 1"].astype(int)
 table(dm, "Boolean dummy indicators in the master dataset.", 6, col_widths=[4, 3, 3])
 para("**Categorical encoding.** Two nominal string variables, calendar quarter (Q1–Q4) and regime (expansion/recession from the "
-     "NBER indicator), are converted with pandas.get_dummies(drop_first=True) into 0/1 flags q2, q3, q4 and usrec, with Q1 and "
-     "expansion as reference levels to avoid the dummy-variable trap. Further binary flags are covid_period (March–December 2020), "
-     f"the two data-availability flags, and the target-derived icsa_spike, which marks the top decile of weekly claims increases "
-     f"(rises above {spike_cut:.1f} %). Only {int(dummies.loc['usrec','weeks = 1'])} weeks (8 %) fall in a recession, which already "
-     "warns that regime-interaction hypotheses rest on few observations.")
+     "NBER indicator), are converted with pandas.get_dummies(drop_first=True) into 0/1 flags, with Q1 and expansion as reference "
+     "levels to avoid the dummy-variable trap. Only the regime flag is stored, as usrec; the quarter dummies are shown for the "
+     "mechanics but not kept because initial claims are already seasonally adjusted. The other stored flag is covid_period "
+     "(March–December 2020). A target-derived icsa_spike indicator, marking the top decile of weekly claims increases (rises above "
+     f"{spike_cut:.1f} %), is created inside the notebook for the exploratory analysis. Only {int(dummies.loc['usrec','weeks = 1'])} "
+     "weeks (8 %) fall in a recession, which already warns that regime-interaction hypotheses rest on few observations.")
 
 # ============================================================================= III
 doc.add_heading("III. Exploratory Data Analysis", level=1)
@@ -369,8 +368,8 @@ figure("fig5_claims_change_after_shock.png",
 # ============================================================================= IV
 doc.add_heading("IV. Hypotheses and Analytical Plan", level=1)
 para("Notation: Yₜ is the weekly change in log initial claims, Δlog(ICSAₜ); Δpᶜₜ₋ₖ is the % change in commodity c's weekly mean price "
-     "k weeks earlier; σᶜₜ is its trailing 4-week volatility; Rₜ is the NBER recession flag; Zₜ collects the controls "
-     "(usrec, covid_period, quarter dummies, lagged Yₜ).")
+     "k weeks earlier (from add_lags()); σᶜₜ is its trailing 4-week volatility; Rₜ is the NBER recession flag; Zₜ collects the "
+     "controls (usrec, covid_period, lagged Yₜ).")
 hyps = [
     ("H1 — Energy shocks (crude oil).",
      "H₀: β^oil_k = 0 for all k ∈ {0,…,16}; H₁: β^oil_k ≠ 0 for at least one k, in Yₜ = α + Σₖ β^oil_k Δp^oil_{t−k} + γ′Zₜ + εₜ. "

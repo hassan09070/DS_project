@@ -1,6 +1,6 @@
 Hypothesis,Target / response (Y),Primary explanatory predictors (X),Confounders / controls (Z)
-H1,icsa_pct_chg_1w  (alt.: Δ log_icsa; icsa_spike for classification),oil_pct_lag0..16  (oil_pct_1w = lag 0),"usrec, covid_period, q2, q3, q4, lagged target (icsa_pct_chg_1w shifted 1–2), gas_pct_lag*"
-H2,icsa_pct_chg_1w / icsa_spike,gas_pct_lag2..8,"usrec, covid_period, q2, q3, q4, lagged target (icsa_pct_chg_1w shifted 1–2), oil_pct_lag*"
-H3,icsa_pct_chg_1w / icsa_spike,"copper_pct_lag0..16, iron_pct_lag0..16","usrec, covid_period, q2, q3, q4, lagged target (icsa_pct_chg_1w shifted 1–2), oil_pct_lag*, iron_avail"
-H4,icsa_pct_chg_1w,"oil_vol_4w, gas_vol_4w, copper_vol_4w, iron_vol_4w (each shifted 4 weeks)","usrec, covid_period, q2, q3, q4, lagged target (icsa_pct_chg_1w shifted 1–2), own {c}_pct_lag4"
-H5,icsa_pct_chg_1w,{c}_pct_lagk × usrec (interaction) for the k* found under H1–H3,"usrec, covid_period, q2, q3, q4, lagged target (icsa_pct_chg_1w shifted 1–2)"
+H1,"icsa_pct_chg_1w  (alt.: Δ log_icsa; icsa_spike for classification, derived in the notebook)",oil_pct_1w (lag 0) + oil_pct_lag1..16 from add_lags(),"usrec, covid_period, lagged target (icsa_pct_chg_1w shifted 1–2), gas_pct_lag*"
+H2,icsa_pct_chg_1w / icsa_spike,gas_pct_lag2..8,"usrec, covid_period, lagged target (icsa_pct_chg_1w shifted 1–2), oil_pct_lag*"
+H3,icsa_pct_chg_1w / icsa_spike,"copper_pct_1w, iron_pct_1w + their lag1..16 from add_lags()","usrec, covid_period, lagged target (icsa_pct_chg_1w shifted 1–2), oil_pct_lag*"
+H4,icsa_pct_chg_1w,"oil_vol_4w, gas_vol_4w, copper_vol_4w, iron_vol_4w (each shifted 4 weeks)","usrec, covid_period, lagged target (icsa_pct_chg_1w shifted 1–2), own {c}_pct_lag4"
+H5,icsa_pct_chg_1w,{c}_pct_lagk × usrec (interaction) for the k* found under H1–H3,"usrec, covid_period, lagged target (icsa_pct_chg_1w shifted 1–2)"

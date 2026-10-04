@@ -43,7 +43,7 @@ from scipy import stats
 warnings.filterwarnings("ignore", category=FutureWarning)
 ROOT = Path.cwd() if (Path.cwd() / "src").exists() else Path.cwd().parent
 sys.path.insert(0, str(ROOT / "src"))
-from build_master import (build_master, data_dictionary, weekly_from_daily, add_commodity_features,
+from build_master import (build_master, data_dictionary, weekly_from_daily, add_commodity_features, add_lags,
                           load_daily, load_icsa, COMMODITIES, MAX_LAG, COVID, spike_threshold)
 
 TABLES = ROOT / "data" / "processed" / "tables"; TABLES.mkdir(parents=True, exist_ok=True)
@@ -100,8 +100,8 @@ overview = pd.DataFrame({
               "1 row = 1 calendar week ending Saturday (the US Department of Labor's 'week ending' convention for initial claims)",
               f"{master.index.min().date()} to {master.index.max().date()}",
               "icsa (weekly initial claims, persons) and its derived log / % change / spike indicator",
-              "4 commodities × (weekly mean, close, within-week and 4-week volatility, % change, 16 lagged % changes)",
-              "NBER recession (usrec), quarter dummies, COVID period, data-availability flags",
+              "4 commodities × (base weekly mean price, weekly % price shock, 4-week volatility); lags 1–16 of the shock are created on demand by add_lags()",
+              "NBER recession (usrec), COVID period (covid_period)",
               "FRED API (6 series), Yahoo Finance via yfinance (2 futures tickers)"]})
 overview.to_csv(TABLES / "t01_master_overview.csv", index=False)
 display(overview.style.hide(axis="index").set_properties(**{"text-align": "left"}))
@@ -115,13 +115,15 @@ display(sources.drop(columns="source"))
 
 md(r"""
 ### Interpretation
-The master table has **1,500 weekly observations and 115 variables**, covering every week from 3 January 1998 to
+The master table has **1,500 weekly observations and 17 variables**, covering every week from 3 January 1998 to
 the latest published claims week. The unit of observation is the Department of Labor's reference week (Sunday to
 Saturday), so the target is never resampled; every other series is brought *to* that grid. Eight raw files feed
 the table: six FRED series (claims, two daily spot prices, the monthly NBER recession flag, and the two monthly
 metal benchmarks kept for reference) and two daily futures series from Yahoo Finance for the metals, following the
-Milestone 01 source-selection test. The 115 columns are dominated by the exploratory 16-week lag block
-(4 commodities × 16 lags = 64 columns); the plan is to retain only the strongest lags per commodity for modelling.
+Milestone 01 source-selection test. The 17 columns are exactly the proposal's feature families: the claims target (level, log, weekly change), and per
+commodity the base weekly price, the weekly percentage price shock and the 4-week volatility, plus two regime flags.
+The proposal's exploratory 16-week lag block (4 commodities × 16 lags = 64 columns) is deliberately **not stored**:
+`add_lags()` in `build_master.py` creates it on demand, and the modelling stage will keep only the strongest lags per commodity.
 """)
 
 # =============================================================================
@@ -160,15 +162,15 @@ The raw files arrive at three frequencies (weekly, daily, monthly) and two diffe
 The reshaping below produces one modelling-ready table keyed on the claims reference week:
 
 1. **Daily → weekly (down-sampling).** Each daily price series is grouped into Sunday–Saturday bins labelled by
-   the Saturday (`resample("W-SAT")`). Per week we keep the *mean* price (level), the *last* price (close),
-   the number of trading days observed, the standard deviation of daily log returns inside the week (within-week
-   volatility), and a trailing 20-trading-day volatility sampled on the last day of the week.
+   the Saturday (`resample("W-SAT")`). Per week we keep the *mean* price (the base weekly price) and a trailing
+   20-trading-day volatility of daily log returns sampled on the last day of the week; weeks with no trading day at
+   all are set to missing.
 2. **Monthly → weekly (up-sampling).** The NBER recession flag is forward-filled from the month start to every week
    in that month.
 3. **Join.** All weekly frames are left-joined onto the claims index, so the claims weeks define the sample and
    no commodity week without a claims observation enters the table.
-4. **Feature construction.** Week-over-week percentage change of the weekly mean, the natural log of the level,
-   and lags 1–16 of the percentage change per commodity.
+4. **Feature construction.** Week-over-week percentage change of the weekly mean (the price shock). Lags 1–16 of
+   the shock, the proposal's exploratory window, are produced on demand by `add_lags()` rather than stored.
 
 The functions that do this are printed below from `src/build_master.py`.
 """)
@@ -176,6 +178,7 @@ The functions that do this are printed below from `src/build_master.py`.
 code(r"""
 print(inspect.getsource(weekly_from_daily))
 print(inspect.getsource(add_commodity_features))
+print(inspect.getsource(add_lags))
 """)
 
 code(r"""
@@ -186,7 +189,7 @@ example_week = oil_daily["2020-04-19":"2020-04-25"]
 print("Daily WTI prices, week ending 2020-04-25 (USD/barrel):")
 print(example_week.to_string())
 print("\nWeekly row produced for that week:")
-display(master.loc[["2020-04-25"], ["oil_mean", "oil_close", "oil_n_days", "oil_vol_w", "oil_vol_4w", "oil_pct_1w"]])
+display(master.loc[["2020-04-25"], ["oil_mean", "oil_pct_1w", "oil_vol_4w"]])
 
 # Alignment check: every master index date is a Saturday and spacing is exactly 7 days
 print("All Saturdays:", (master.index.dayofweek == 5).all(),
@@ -197,8 +200,8 @@ md(r"""
 ### Interpretation
 The worked example shows the collapse from five trading days to a single row and makes the choice of
 *mean* rather than *close* visible: the week of 25 April 2020 closes at 15.99 USD/bbl, but its mean is 3.32 USD/bbl
-because of the −37.63 USD/bbl print on 20 April. The weekly mean is retained as the level feature because it is what a
-business paying for inputs over the week actually faced; the close is kept as a secondary column. The log return
+because of the −37.63 USD/bbl print on 20 April. The weekly mean is the stored level feature because it is what a
+business paying for inputs over the week actually faced; the close is not kept. The log return
 on the negative day is undefined, so that single observation is excluded from the return-based volatility
 features only, never from the price level. The index passes both structural checks (all Saturdays, uniform 7-day spacing).
 """)
@@ -210,15 +213,8 @@ md(r"""
 code(r"""
 miss = pd.DataFrame({"missing_n": master.isna().sum(), "missing_pct": master.isna().mean() * 100})
 miss["missing_pct"] = miss["missing_pct"].round(2)
-
-# compact view: the lag block is summarised by its range instead of 64 separate rows
-core = [c for c in master.columns if "_lag" not in c and not c.endswith(("_z", "_mm"))]
-lag_summary = pd.DataFrame({k: miss.loc[[f"{k}_pct_lag{i}" for i in range(1, MAX_LAG + 1)], "missing_pct"].agg(["min", "max"])
-                            for k in KEYS}).T.rename(columns={"min": "lag1 missing %", "max": f"lag{MAX_LAG} missing %"})
 miss.to_csv(TABLES / "t03_missing_all_columns.csv")
-display(miss.loc[core].T)
-print("\nLag block, % missing from lag 1 to lag 16:")
-display(lag_summary)
+display(miss.T)
 
 # where is the missingness in time?  share of weeks per year with a missing weekly mean
 by_year = (master[[f"{k}_mean" for k in KEYS]].isna()
@@ -237,10 +233,10 @@ md(r"""
 | `icsa` and all target columns | 0 % (1 % for the first-difference, by construction) | — | Never imputed. |
 | `oil_*` | 0.3 % (4 weeks in 1998–99) | Sparse early FRED daily coverage | Left `NaN`. |
 | `gas_*` | 8.1 % (121 weeks, all before April 2007) | FRED's Henry Hub daily series is intermittent before 2007 (roughly one trading day in four is recorded) | Left `NaN`; documented as source sparsity. |
-| `copper_*` | 9.3 % (all weeks before 2000-09-02) | **Structural:** COMEX copper futures history on Yahoo begins 30 Aug 2000 | Left `NaN`; `copper_avail` flag added. |
-| `iron_*` | 44.5 % (all weeks before 2010-10-16) | **Structural:** TIO=F listed 14 Oct 2010; the API returns "Data doesn't exist" for earlier dates | Left `NaN`; `iron_avail` flag added. |
-| `*_pct_lagk` | adds exactly *k* more weeks per lag | Shifting | Expected; disappears once lags are pruned. |
-| `usrec`, dummies | 0 % | — | — |
+| `copper_*` | 9.3 % (all weeks before 2000-09-02) | **Structural:** COMEX copper futures history on Yahoo begins 30 Aug 2000 | Left `NaN`. |
+| `iron_*` | 44.5 % (all weeks before 2010-10-16) | **Structural:** TIO=F listed 14 Oct 2010; the API returns "Data doesn't exist" for earlier dates | Left `NaN`. |
+| `*_vol_4w` | a few extra weeks per commodity | The 20-day rolling window needs ≥ 10 returns | Left `NaN`. |
+| `usrec`, `covid_period` | 0 % | — | — |
 
 **Why no imputation.** Mean/median imputation of a price level that did not exist would inject a constant into a
 time series and destroy the very week-to-week variation the project studies; time-series interpolation across a
@@ -270,7 +266,7 @@ code(r"""
 skew_tbl = pd.DataFrame({
     "variable": ["icsa"] + [f"{k}_mean" for k in KEYS],
     "skew (raw)": [stats.skew(master["icsa"])] + [stats.skew(master[f"{k}_mean"].dropna()) for k in KEYS],
-    "skew (log)": [stats.skew(master["log_icsa"])] + [stats.skew(master[f"{k}_log_mean"].dropna()) for k in KEYS],
+    "skew (log)": [stats.skew(master["log_icsa"])] + [stats.skew(np.log(master[f"{k}_mean"].dropna())) for k in KEYS],
 }).round(2)
 skew_tbl.to_csv(TABLES / "t05_log_transform_skew.csv", index=False)
 display(skew_tbl)
@@ -283,17 +279,20 @@ pandemic weeks reach 6.1 million. `log_icsa` reduces skewness to 2.3 and is the 
 a one-unit change in log claims is a constant *percentage* change, which is also how policymakers talk about
 layoff waves. Natural gas is the only commodity with material right skew (1.75, driven by the 2005 and 2022 spikes),
 and the log reduces it to 0.55. Crude oil, copper and iron ore are already close to symmetric in levels (0.11,
-0.01, 0.47) and the log *over*-corrects oil and copper into moderate left skew (−0.9, −1.1), so for those three the
-raw level is the primary feature and the log copy is kept only for elasticity-style specifications.
+0.01, 0.47) and the log *over*-corrects oil and copper into moderate left skew (−0.9, −1.1), so for the commodities
+the raw level is what the master stores; a log can be applied at model time if an elasticity specification is wanted.
 """)
 
 code(r"""
 # --- Scaling: z-score standardisation and Min-Max normalisation -------------------------
 scale_cols = ["icsa", "log_icsa", "oil_mean", "gas_mean", "copper_mean", "iron_mean"]
+raw = master[scale_cols]
+z_scored = (raw - raw.mean()) / raw.std(ddof=1)                 # standardisation: mean 0, sd 1
+min_max = (raw - raw.min()) / (raw.max() - raw.min())            # normalisation: range [0, 1]
 scale_demo = pd.concat({
-    "raw":  master[scale_cols].describe().loc[["mean", "std", "min", "max"]],
-    "z":    master[[c + "_z" for c in scale_cols]].set_axis(scale_cols, axis=1).describe().loc[["mean", "std", "min", "max"]],
-    "minmax": master[[c + "_mm" for c in scale_cols]].set_axis(scale_cols, axis=1).describe().loc[["mean", "std", "min", "max"]],
+    "raw":    raw.describe().loc[["mean", "std", "min", "max"]],
+    "z":      z_scored.describe().loc[["mean", "std", "min", "max"]],
+    "minmax": min_max.describe().loc[["mean", "std", "min", "max"]],
 }, axis=0).round(3)
 scale_demo.to_csv(TABLES / "t06_scaling_summary.csv")
 display(scale_demo)
@@ -301,11 +300,11 @@ display(scale_demo)
 
 md(r"""
 ### Interpretation: scaling
-Both scaled copies are stored alongside the raw columns (`*_z`, `*_mm`). Standardisation is the default for the
+Both scalings are computed here and deliberately **not stored** in the master. Standardisation is the default for the
 regression-type models planned (coefficients become comparable across commodities measured in dollars per barrel,
-per MMBtu and per tonne). Min-Max copies are kept for tree-free neural baselines, which prefer bounded inputs.
-Because the min, max, mean and standard deviation here are **full-sample** statistics, these columns are for EDA
-only; in Milestone 03 the scalers will be refitted on the training window to prevent look-ahead leakage.
+per MMBtu and per tonne); Min-Max normalisation serves bounded-input models. Because the min, max, mean and standard
+deviation above are **full-sample** statistics, writing the scaled columns to disk would bake look-ahead information
+into the file; in Milestone 03 the scalers are fitted on the training window inside the model pipeline.
 """)
 
 code(r"""
@@ -321,11 +320,10 @@ dummies = pd.get_dummies(nominal, prefix=["q", "regime"], drop_first=True, dtype
 print("\nAfter get_dummies(drop_first=True) -> one Boolean 0/1 flag per non-reference level:")
 display(dummies.head(3))
 
-# The master already carries the same encoding; verify the two agree exactly
-assert (dummies[["q_Q2", "q_Q3", "q_Q4"]].to_numpy() == master[["q2", "q3", "q4"]].to_numpy()).all()
+# The master's usrec column is exactly this regime dummy; verify
 assert (dummies["regime_recession"].to_numpy() == master["usrec"].to_numpy()).all()
 
-dummy_counts = master[["usrec", "q2", "q3", "q4", "covid_period", "copper_avail", "iron_avail", "icsa_spike"]].agg(["sum", "mean"]).T
+dummy_counts = master[["usrec", "covid_period"]].agg(["sum", "mean"]).T
 dummy_counts.columns = ["weeks = 1", "share"]
 dummy_counts["share"] = dummy_counts["share"].round(3)
 dummy_counts.to_csv(TABLES / "t07_dummy_counts.csv")
@@ -336,11 +334,12 @@ md(r"""
 ### Interpretation: dummy encoding
 `get_dummies(drop_first=True)` converts the two nominal strings into four 0/1 indicators (`Q2`, `Q3`, `Q4`,
 `recession`); Q1 and expansion are the reference levels, which avoids the dummy-variable trap in a regression with
-an intercept. The assertion confirms the master's `q2–q4` and `usrec` columns are identical to this encoding.
-The remaining flags are binary by construction: `covid_period` (43 weeks), the two availability flags, and the
-target-derived `icsa_spike`, which marks the 150 weeks (top decile) in which claims rose by more than
-5.2 % week-over-week. Only 120 weeks (8 %) fall inside an NBER recession, which already warns that any
-regime-interaction hypothesis will rest on a small number of recession observations.
+an intercept. Only the regime dummy is kept in the master, as `usrec` (the assertion confirms the two are identical).
+The quarter dummies are shown for the encoding mechanics but not stored, because initial claims are published
+seasonally adjusted and a quarter effect would be double-counting. The other stored flag is `covid_period`
+(43 weeks), which the proposal anticipates needing to isolate the pandemic layoffs. Only 120 weeks (8 %) fall inside
+an NBER recession, which already warns that any regime-interaction hypothesis will rest on a small number of
+recession observations.
 """)
 
 # =============================================================================
@@ -351,6 +350,9 @@ md(r"""
 """)
 
 code(r"""
+# Analysis-only column (not part of the stored master): a 'claims spike' week is a top-decile weekly rise
+master["icsa_spike"] = (master["icsa_pct_chg_1w"] >= spike_threshold(master)).astype(int)
+
 def univariate(s: pd.Series) -> pd.Series:
     s = s.dropna(); q1, q3 = s.quantile([0.25, 0.75])
     return pd.Series({"n": len(s), "mean": s.mean(), "median": s.median(), "SD": s.std(ddof=1), "IQR": q3 - q1,
@@ -439,9 +441,10 @@ md(r"""
 
 code(r"""
 # (a) Correlation matrix of the key continuous variables (log levels, weekly % changes, volatility, regime)
-corr_cols = (["log_icsa", "icsa_pct_chg_1w"] + [f"{k}_log_mean" for k in KEYS]
-             + [f"{k}_pct_1w" for k in KEYS] + [f"{k}_vol_4w" for k in KEYS] + ["usrec"])
-corr = master[corr_cols].corr(method="pearson")
+log_levels = np.log(master[[f"{k}_mean" for k in KEYS]]).rename(columns=lambda c: c.replace("_mean", "_log_mean"))
+corr_df = pd.concat([master[["log_icsa", "icsa_pct_chg_1w"]], log_levels,
+                     master[[f"{k}_pct_1w" for k in KEYS] + [f"{k}_vol_4w" for k in KEYS] + ["usrec"]]], axis=1)
+corr = corr_df.corr(method="pearson")
 corr.to_csv(TABLES / "t11_correlation_matrix.csv")
 display(corr.round(2))
 """)
@@ -450,7 +453,8 @@ code(r"""
 # (b) Cross-correlation of each commodity's weekly % change with the % change in claims, lags 0..16.
 #     A positive lag k means the commodity move happened k weeks BEFORE the claims move.
 y = master["icsa_pct_chg_1w"]
-xcorr = pd.DataFrame({k: [y.corr(master[f"{k}_pct_1w"].shift(l)) for l in range(0, MAX_LAG + 1)] for k in KEYS},
+lagged = add_lags(master)                 # creates {c}_pct_lag1..16 on demand (not stored in the master)
+xcorr = pd.DataFrame({k: [y.corr(lagged[f"{k}_pct_1w" if l == 0 else f"{k}_pct_lag{l}"]) for l in range(0, MAX_LAG + 1)] for k in KEYS},
                      index=pd.Index(range(0, MAX_LAG + 1), name="lag (weeks)"))
 n_eff = {k: int(pd.concat([y, master[f"{k}_pct_1w"]], axis=1).dropna().shape[0]) for k in KEYS}
 band = {k: 2 / np.sqrt(n_eff[k]) for k in KEYS}         # approximate 95 % band for a zero correlation
@@ -731,12 +735,12 @@ on the training window only.
 
 code(r"""
 # Variable mapping: every hypothesis -> concrete columns in master_weekly.csv
-controls = "usrec, covid_period, q2, q3, q4, lagged target (icsa_pct_chg_1w shifted 1–2)"
+controls = "usrec, covid_period, lagged target (icsa_pct_chg_1w shifted 1–2)"
 mapping = pd.DataFrame([
-    ["H1", "icsa_pct_chg_1w  (alt.: Δ log_icsa; icsa_spike for classification)",
-     "oil_pct_lag0..16  (oil_pct_1w = lag 0)", controls + ", gas_pct_lag*"],
+    ["H1", "icsa_pct_chg_1w  (alt.: Δ log_icsa; icsa_spike for classification, derived in the notebook)",
+     "oil_pct_1w (lag 0) + oil_pct_lag1..16 from add_lags()", controls + ", gas_pct_lag*"],
     ["H2", "icsa_pct_chg_1w / icsa_spike", "gas_pct_lag2..8", controls + ", oil_pct_lag*"],
-    ["H3", "icsa_pct_chg_1w / icsa_spike", "copper_pct_lag0..16, iron_pct_lag0..16", controls + ", oil_pct_lag*, iron_avail"],
+    ["H3", "icsa_pct_chg_1w / icsa_spike", "copper_pct_1w, iron_pct_1w + their lag1..16 from add_lags()", controls + ", oil_pct_lag*"],
     ["H4", "icsa_pct_chg_1w", "oil_vol_4w, gas_vol_4w, copper_vol_4w, iron_vol_4w (each shifted 4 weeks)", controls + ", own {c}_pct_lag4"],
     ["H5", "icsa_pct_chg_1w", "{c}_pct_lagk × usrec (interaction) for the k* found under H1–H3", controls],
 ], columns=["Hypothesis", "Target / response (Y)", "Primary explanatory predictors (X)", "Confounders / controls (Z)"])

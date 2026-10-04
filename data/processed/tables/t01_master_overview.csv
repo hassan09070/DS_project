@@ -1,9 +1,9 @@
 Item,Value
 Observations (rows),"1,500 weeks"
-Variables (columns),115
+Variables (columns),17
 Observational unit,1 row = 1 calendar week ending Saturday (the US Department of Labor's 'week ending' convention for initial claims)
 Time span,1998-01-03 to 2026-09-26
 Target variable,"icsa (weekly initial claims, persons) and its derived log / % change / spike indicator"
-Commodity predictors,"4 commodities × (weekly mean, close, within-week and 4-week volatility, % change, 16 lagged % changes)"
-Controls / dummies,"NBER recession (usrec), quarter dummies, COVID period, data-availability flags"
+Commodity predictors,"4 commodities × (base weekly mean price, weekly % price shock, 4-week volatility); lags 1–16 of the shock are created on demand by add_lags()"
+Controls / dummies,"NBER recession (usrec), COVID period (covid_period)"
 Raw sources,"FRED API (6 series), Yahoo Finance via yfinance (2 futures tickers)"

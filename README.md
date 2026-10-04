@@ -9,7 +9,7 @@ Team: Rana Mohammad Sarib Khan (rk09083), Abdullah Ahmed (aa09303), Hassan Shahz
 |---|---|
 | Executable notebook (all tables and figures) | `Milestone02_Analysis.ipynb` |
 | Manuscript draft, Sections II–IV (PDF) | `report/Milestone02_Report.pdf` |
-| Weekly master dataset | `data/processed/master_weekly.csv` (1,500 weeks × 115 columns) |
+| Weekly master dataset | `data/processed/master_weekly.csv` (1,500 weeks × 17 columns; lags 1–16 created on demand by `add_lags()`) |
 | Data dictionary | `data/processed/data_dictionary.csv` |
 | Tables used in the report | `data/processed/tables/` |
 | Figures | `figures/` |

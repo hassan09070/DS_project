@@ -1,0 +1,82 @@
+{
+  "ICSA": {
+    "description": "Initial Claims (weekly, SA, persons)",
+    "source": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=ICSA",
+    "frequency": "weekly",
+    "pulled_at_utc": "2026-10-04 10:48 UTC",
+    "rows": 1500,
+    "first_date": "1998-01-03",
+    "last_date": "2026-09-26",
+    "file": "data/raw/ICSA.csv"
+  },
+  "DCOILWTICO": {
+    "description": "WTI crude oil spot (daily, USD/bbl)",
+    "source": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO",
+    "frequency": "daily",
+    "pulled_at_utc": "2026-10-04 10:48 UTC",
+    "rows": 7499,
+    "first_date": "1998-01-01",
+    "last_date": "2026-09-29",
+    "file": "data/raw/DCOILWTICO.csv"
+  },
+  "DHHNGSP": {
+    "description": "Henry Hub natural gas spot (daily, USD/MMBtu)",
+    "source": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DHHNGSP",
+    "frequency": "daily",
+    "pulled_at_utc": "2026-10-04 10:48 UTC",
+    "rows": 7499,
+    "first_date": "1998-01-01",
+    "last_date": "2026-09-29",
+    "file": "data/raw/DHHNGSP.csv"
+  },
+  "USREC": {
+    "description": "NBER recession indicator (monthly, 0/1)",
+    "source": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=USREC",
+    "frequency": "monthly",
+    "pulled_at_utc": "2026-10-04 10:48 UTC",
+    "rows": 345,
+    "first_date": "1998-01-01",
+    "last_date": "2026-09-01",
+    "file": "data/raw/USREC.csv"
+  },
+  "PCOPPUSDM": {
+    "description": "Copper global price (monthly, USD/tonne) -- reference",
+    "source": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=PCOPPUSDM",
+    "frequency": "monthly",
+    "pulled_at_utc": "2026-10-04 10:48 UTC",
+    "rows": 343,
+    "first_date": "1998-01-01",
+    "last_date": "2026-07-01",
+    "file": "data/raw/PCOPPUSDM.csv"
+  },
+  "PIORECRUSDM": {
+    "description": "Iron ore global price (monthly, USD/tonne) -- reference",
+    "source": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=PIORECRUSDM",
+    "frequency": "monthly",
+    "pulled_at_utc": "2026-10-04 10:48 UTC",
+    "rows": 343,
+    "first_date": "1998-01-01",
+    "last_date": "2026-07-01",
+    "file": "data/raw/PIORECRUSDM.csv"
+  },
+  "HG_F": {
+    "description": "COMEX copper futures (daily, USD/lb)",
+    "source": "yfinance.download('HG=F', start='1998-01-01', interval='1d')",
+    "frequency": "daily",
+    "pulled_at_utc": "2026-10-04 10:48 UTC",
+    "rows": 6552,
+    "first_date": "2000-08-30",
+    "last_date": "2026-10-02",
+    "file": "data/raw/HG_F.csv"
+  },
+  "TIO_F": {
+    "description": "Iron ore 62% Fe CFR China futures (daily, USD/tonne)",
+    "source": "yfinance.download('TIO=F', start='1998-01-01', interval='1d')",
+    "frequency": "daily",
+    "pulled_at_utc": "2026-10-04 10:48 UTC",
+    "rows": 4003,
+    "first_date": "2010-10-14",
+    "last_date": "2026-10-02",
+    "file": "data/raw/TIO_F.csv"
+  }
+}
